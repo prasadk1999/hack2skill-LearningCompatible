@@ -19,6 +19,9 @@ function App() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  
+  // Generate a unique session ID for this browser tab
+  const [sessionId] = useState(() => crypto.randomUUID());
 
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
@@ -73,7 +76,10 @@ function App() {
 
       const res = await fetch(`${API_URL}/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-session-id': sessionId
+        },
         body: JSON.stringify({ message: text, history }),
       });
 
@@ -119,11 +125,13 @@ function App() {
           <h1>Learning Companion</h1>
           <p>AI-powered adaptive tutor</p>
         </div>
-        <span className="header-badge">Gemini AI</span>
+        <div className="header-tokens">
+          <span className="header-badge">Gemini AI</span>
+        </div>
       </header>
 
       {/* Chat Area */}
-      <div className="chat-container">
+      <main className="chat-container" role="main">
         {messages.length === 0 && !isLoading ? (
           /* Welcome Screen */
           <div className="welcome">
@@ -139,6 +147,7 @@ function App() {
               {SUGGESTIONS.map((s, i) => (
                 <button
                   key={i}
+                  type="button"
                   className="welcome-chip"
                   onClick={() => handleSuggestion(s.text)}
                 >
@@ -149,7 +158,7 @@ function App() {
           </div>
         ) : (
           /* Messages */
-          <div className="chat-messages">
+          <div className="chat-messages" role="log" aria-live="polite">
             {messages.map((msg, i) => (
               <div key={i} className={`message message--${msg.role}`}>
                 <div className="message-avatar">
@@ -185,7 +194,7 @@ function App() {
             <div ref={messagesEndRef} />
           </div>
         )}
-      </div>
+      </main>
 
       {/* Input */}
       <div className="input-area">
@@ -199,8 +208,10 @@ function App() {
             rows={1}
             disabled={isLoading}
             id="chat-input"
+            aria-label="Message input"
           />
           <button
+            type="button"
             className="send-button"
             onClick={() => sendMessage()}
             disabled={!input.trim() || isLoading}

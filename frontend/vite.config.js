@@ -9,5 +9,10 @@ export default defineConfig({
       '/chat': 'http://localhost:3001',
       '/health': 'http://localhost:3001'
     }
+  },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: './src/setupTests.js',
   }
 })

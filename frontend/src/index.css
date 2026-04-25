@@ -25,7 +25,7 @@
   /* Text */
   --text-primary: #f0f0f5;
   --text-secondary: #a0a0b8;
-  --text-muted: #6b6b80;
+  --text-muted: #808099; /* Improved contrast for a11y */
 
   /* Borders */
   --border-subtle: rgba(255, 255, 255, 0.06);
@@ -67,8 +67,19 @@ html, body, #root {
   background: rgba(255, 255, 255, 0.18);
 }
 
-/* ─── Selection ───────────────────────────────────── */
+/* ─── Selection & Focus ───────────────────────────── */
 ::selection {
   background: var(--accent-start);
   color: white;
+}
+
+/* Global focus visibility for keyboard accessibility */
+:focus-visible {
+  outline: 2px solid var(--accent-start);
+  outline-offset: 2px;
+}
+
+/* Remove default focus outline if focus-visible is supported */
+:focus:not(:focus-visible) {
+  outline: none;
 }
