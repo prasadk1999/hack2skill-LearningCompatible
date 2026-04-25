@@ -3,6 +3,7 @@ const express = require("express");
 const path = require("path");
 const cors = require("cors");
 const morgan = require("morgan");
+const rateLimit = require("express-rate-limit");
 const crypto = require("crypto");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const logger = require("./logger");
@@ -40,6 +41,15 @@ app.use(morgan(':method :url :status :res[content-length] - :response-time ms', 
 app.use(cors());
 app.use(express.json());
 
+// Strict Rate Limiting: Max 30 requests per hour per IP to protect billing
+const chatLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 30, // Limit each IP to 30 requests per windowMs
+  message: { error: "You have reached the maximum number of requests (30 per hour). Please try again later." },
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+});
+
 // Health check
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
@@ -48,7 +58,8 @@ app.get("/health", (_req, res) => {
 const responseHandler = require("./src/handlers/responseHandler");
 
 // ─── POST /chat ──────────────────────────────────────────
-app.post("/chat", (req, res) => responseHandler.handleChat(req, res));
+// Apply the rate limiter specifically to the chat endpoint where API costs occur
+app.post("/chat", chatLimiter, (req, res) => responseHandler.handleChat(req, res));
 
 // ─── Serve Frontend ─────────────────────────────────────
 // Serve static files from the frontend/dist directory

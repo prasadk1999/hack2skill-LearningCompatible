@@ -12,7 +12,7 @@ class ResponseHandler {
   async handleChat(req, res) {
     const startTime = Date.now();
     const requestId = req.requestId;
-    
+
     try {
       const { message, history } = req.body;
       const sessionId = req.headers['x-session-id'] || 'default-session';
@@ -27,28 +27,28 @@ class ResponseHandler {
 
       // 1. Run Evaluation to update state based on user's answer
       await evaluationEngine.evaluate(sessionId, message, history);
-      
+
       const state = learnerStateManager.getState(sessionId);
 
       // 2. Intercept Commands
       if (cleanMsg === "test me") {
-          learnerStateManager.updateState(sessionId, { is_testing: true });
+        learnerStateManager.updateState(sessionId, { is_testing: true });
       }
 
       // 3. Onboarding Flow Logic (Strict Enforcement)
       if (!state.topic && !state.is_testing) {
-          // If topic is still missing (evaluation engine didn't set it because it was just "hi")
-          // Or if this is the very first message.
-          if (cleanMsg.replace(/[.,!?]+$/, "") === "hi" || cleanMsg === "hello") {
-              return this._sendResponse(res, "Hello! I am your AI Learning Companion.\n\nWhat do you want to learn today?", 0, 0, startTime);
-          }
-          if (!state.topic) { // Ensure evaluation engine didn't just set it
-             return this._sendResponse(res, "What do you want to learn today?", 0, 0, startTime);
-          }
+        // If topic is still missing (evaluation engine didn't set it because it was just "hi")
+        // Or if this is the very first message.
+        if (cleanMsg.replace(/[.,!?]+$/, "") === "hi" || cleanMsg === "hello") {
+          return this._sendResponse(res, "Hello! I am your AI Learning Companion.\n\nWhat do you want to learn today?", 0, 0, startTime);
+        }
+        if (!state.topic) { // Ensure evaluation engine didn't just set it
+          return this._sendResponse(res, "What do you want to learn today?", 0, 0, startTime);
+        }
       }
 
       if (state.topic && !state.depth_preference_known && !state.is_testing) {
-          return this._sendResponse(res, `Awesome, let's dive into **${state.topic}**!\n\nDo you want a simple explanation or a deeper one?`, 0, 0, startTime);
+        return this._sendResponse(res, `Awesome, let's dive into **${state.topic}**!\n\nDo you want a simple explanation or a deeper one?`, 0, 0, startTime);
       }
 
       // 4. Build Gemini Context
@@ -65,9 +65,9 @@ class ResponseHandler {
 
       // 5. Generate Response using dynamic prompt
       const dynamicInstruction = promptBuilder.buildSystemInstruction(sessionId);
-      
+
       const chatModel = this.genAI.getGenerativeModel({
-        model: "gemini-3-flash-preview", // Using the model configured in server.js
+        model: "gemini-2.5-flash", // Upgraded to gemini-2.5-flash
         systemInstruction: dynamicInstruction,
       });
 
@@ -79,14 +79,14 @@ class ResponseHandler {
       // 6. Teaching Loop Enforcement (Ensure a question is asked)
       const stateAfter = learnerStateManager.getState(sessionId);
       if (!stateAfter.is_testing) {
-          // Check if the response ends with a question mark (simple heuristic)
-          const lastSentence = aiText.slice(-80);
-          if (!lastSentence.includes('?')) {
-              aiText += "\n\nDoes that make sense so far, or do you have any questions?";
-          }
+        // Check if the response ends with a question mark (simple heuristic)
+        const lastSentence = aiText.slice(-80);
+        if (!lastSentence.includes('?')) {
+          aiText += "\n\nDoes that make sense so far, or do you have any questions?";
+        }
       } else {
-          // Turn off testing mode after generating the test
-          learnerStateManager.updateState(sessionId, { is_testing: false });
+        // Turn off testing mode after generating the test
+        learnerStateManager.updateState(sessionId, { is_testing: false });
       }
 
       // Fallback JSON stripping (safety measure)
@@ -95,25 +95,25 @@ class ResponseHandler {
       return this._sendResponse(res, aiText, usage.promptTokenCount || 0, usage.candidatesTokenCount || 0, startTime);
 
     } catch (err) {
-      logger.error("Error in responseHandler", { 
-        requestId: req.requestId, 
-        message: err.message, 
-        stack: err.stack 
+      logger.error("Error in responseHandler", {
+        requestId: req.requestId,
+        message: err.message,
+        stack: err.stack
       });
       return res.status(500).json({ error: "Failed to generate response", details: err.message });
     }
   }
 
   _sendResponse(res, reply, inputTokens, outputTokens, startTime) {
-      const duration = Date.now() - startTime;
-      return res.json({ 
-        reply: reply,
-        usage: {
-          inputTokens,
-          outputTokens,
-          totalTokens: inputTokens + outputTokens
-        }
-      });
+    const duration = Date.now() - startTime;
+    return res.json({
+      reply: reply,
+      usage: {
+        inputTokens,
+        outputTokens,
+        totalTokens: inputTokens + outputTokens
+      }
+    });
   }
 }
 
