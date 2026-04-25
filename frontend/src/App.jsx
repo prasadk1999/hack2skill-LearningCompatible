@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { Send, Bot, User, Sparkles, BookOpen, Zap, Brain } from 'lucide-react';
 import './App.css';
 
-const API_URL = 'http://localhost:3001';
+const API_URL = '';
 
 // ─── Suggestion chips for the welcome screen ─────────
 const SUGGESTIONS = [

@@ -1,5 +1,6 @@
 require("dotenv").config();
 const express = require("express");
+const path = require("path");
 const cors = require("cors");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
@@ -14,7 +15,7 @@ if (!GEMINI_API_KEY) {
 
 // ─── Gemini client ───────────────────────────────────────
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
 // ─── System prompt ───────────────────────────────────────
 const SYSTEM_PROMPT = `You are an AI learning companion.
@@ -124,7 +125,7 @@ app.post("/chat", async (req, res) => {
 
     // Call Gemini with system instruction
     const chatModel = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
+      model: "gemini-3-flash-preview",
       systemInstruction: SYSTEM_PROMPT,
     });
 
@@ -142,6 +143,15 @@ app.post("/chat", async (req, res) => {
       details: err.message,
     });
   }
+});
+
+// ─── Serve Frontend ─────────────────────────────────────
+// Serve static files from the frontend/dist directory
+app.use(express.static(path.join(__dirname, "../frontend/dist")));
+
+// Handle any requests that don't match the ones above (SPA routing)
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "../frontend/dist/index.html"));
 });
 
 // ─── Start server ────────────────────────────────────────
