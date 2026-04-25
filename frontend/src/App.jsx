@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Send, Bot, User, Sparkles, BookOpen, Zap, Brain } from 'lucide-react';
 import './App.css';
+import logger from './utils/logger';
 
 const API_URL = '';
 
@@ -68,7 +69,7 @@ function App() {
         content: m.content,
       }));
 
-      console.log('📤 Sending to API:', { message: text, historyLength: history.length });
+      logger.info('Sending to API', { historyLength: history.length });
 
       const res = await fetch(`${API_URL}/chat`, {
         method: 'POST',
@@ -82,12 +83,12 @@ function App() {
       }
 
       const data = await res.json();
-      console.log('📥 Received:', data.reply?.substring(0, 80));
+      logger.debug('Received response', { length: data.reply?.length });
 
       const aiMessage = { role: 'assistant', content: data.reply };
       setMessages([...updatedMessages, aiMessage]);
     } catch (err) {
-      console.error('❌ Error:', err);
+      logger.error('Chat error', err);
       setError(err.message || 'Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);

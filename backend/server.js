@@ -2,14 +2,17 @@ require("dotenv").config();
 const express = require("express");
 const path = require("path");
 const cors = require("cors");
+const morgan = require("morgan");
+const { v4: uuidv4 } = require("uuid");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const logger = require("./logger");
 
 // ─── Config ──────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 if (!GEMINI_API_KEY) {
-  console.error("❌  GEMINI_API_KEY is not set in .env");
+  logger.error("GEMINI_API_KEY is not set in .env");
   process.exit(1);
 }
 
@@ -82,6 +85,20 @@ Continuously adapt teaching style to match user understanding and help them lear
 
 // ─── Express app ─────────────────────────────────────────
 const app = express();
+
+// Request ID middleware
+app.use((req, res, next) => {
+  req.requestId = uuidv4();
+  next();
+});
+
+// HTTP Logging with Morgan
+app.use(morgan(':method :url :status :res[content-length] - :response-time ms', {
+  stream: {
+    write: (message) => logger.info(message.trim())
+  }
+}));
+
 app.use(cors());
 app.use(express.json());
 
@@ -92,20 +109,22 @@ app.get("/health", (_req, res) => {
 
 // ─── POST /chat ──────────────────────────────────────────
 app.post("/chat", async (req, res) => {
+  const requestId = req.requestId;
+  const startTime = Date.now();
+
   try {
     const { message, history } = req.body;
 
     if (!message || typeof message !== "string") {
+      logger.warn("Invalid message received", { requestId });
       return res.status(400).json({ error: "message is required and must be a string" });
     }
 
-    console.log(`\n📩  User: ${message}`);
+    logger.info(`Received chat request`, { requestId, messageLength: message.length });
 
     // Build conversation contents for Gemini
-    // The system instruction is passed separately via the model config
     const contents = [];
 
-    // Add conversation history
     if (Array.isArray(history)) {
       for (const entry of history) {
         contents.push({
@@ -115,13 +134,12 @@ app.post("/chat", async (req, res) => {
       }
     }
 
-    // Add current user message
     contents.push({
       role: "user",
       parts: [{ text: message }],
     });
 
-    console.log(`📜  Conversation length: ${contents.length} messages`);
+    logger.debug(`Conversation context prepared`, { requestId, historyLength: contents.length });
 
     // Call Gemini with system instruction
     const chatModel = genAI.getGenerativeModel({
@@ -132,12 +150,24 @@ app.post("/chat", async (req, res) => {
     const result = await chatModel.generateContent({ contents });
     const response = result.response;
     const aiText = response.text();
+    const duration = Date.now() - startTime;
 
-    console.log(`🤖  AI: ${aiText.substring(0, 100)}...`);
+    logger.info(`Gemini response generated`, {
+      requestId,
+      durationMs: duration,
+      responseLength: aiText.length
+    });
 
     return res.json({ reply: aiText });
   } catch (err) {
-    console.error("❌  Error in /chat:", err.message);
+    const duration = Date.now() - startTime;
+    logger.error("Error in /chat", {
+      requestId,
+      message: err.message,
+      stack: err.stack,
+      durationMs: duration
+    });
+
     return res.status(500).json({
       error: "Failed to generate response",
       details: err.message,
@@ -156,6 +186,6 @@ app.get("*", (req, res) => {
 
 // ─── Start server ────────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`\n🚀  Backend running on http://localhost:${PORT}`);
-  console.log(`🔑  API key loaded: ${GEMINI_API_KEY.substring(0, 8)}...`);
+  logger.info(`Backend running on http://localhost:${PORT}`);
+  logger.info(`API key loaded: ${GEMINI_API_KEY.substring(0, 8)}...`);
 });
