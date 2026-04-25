@@ -1,8 +1,56 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
+import mermaid from 'mermaid';
 import { Send, Bot, User, Sparkles, BookOpen, Zap, Brain } from 'lucide-react';
 import './App.css';
 import logger from './utils/logger';
+
+// Initialize mermaid with custom theme matching our app's palette
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'base',
+  themeVariables: {
+    background: '#1a1a2e',      // --bg-card
+    primaryColor: '#222240',    // --bg-elevated
+    primaryTextColor: '#f0f0f5', // --text-primary
+    primaryBorderColor: '#6c5ce7', // --accent-start
+    lineColor: '#a0a0b8',       // --text-secondary
+    secondaryColor: '#12121e',  // --bg-secondary
+    tertiaryColor: '#0a0a12',   // --bg-primary
+    textColor: '#f0f0f5',
+    nodeTextColor: '#f0f0f5',
+    mainBkg: '#222240',
+    nodeBorder: '#6c5ce7',
+    clusterBkg: '#12121e',
+    clusterBorder: '#a29bfe',
+    edgeLabelBackground: '#1a1a2e',
+  },
+  securityLevel: 'strict',
+});
+
+// Custom Mermaid Component
+const Mermaid = ({ chart }) => {
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (containerRef.current && chart) {
+      const renderChart = async () => {
+        try {
+          const id = `mermaid-svg-${Math.random().toString(36).substring(7)}`;
+          const { svg } = await mermaid.render(id, chart);
+          containerRef.current.innerHTML = svg;
+        } catch (error) {
+          logger.error('Mermaid rendering failed', error);
+          containerRef.current.innerHTML = `<div class="error-toast" style="position:relative; transform:none; bottom:0;">Failed to render diagram</div>`;
+        }
+      };
+      renderChart();
+    }
+  }, [chart]);
+
+  return <div className="mermaid-diagram" ref={containerRef} role="img" aria-label="AI generated diagram" />;
+};
+
 
 const API_URL = '';
 
@@ -166,7 +214,23 @@ function App() {
                 </div>
                 <div className="message-bubble">
                   {msg.role === 'assistant' ? (
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    <ReactMarkdown
+                      components={{
+                        code({ node, inline, className, children, ...props }) {
+                          const match = /language-(\w+)/.exec(className || '');
+                          if (!inline && match && match[1] === 'mermaid') {
+                            return <Mermaid chart={String(children).replace(/\n$/, '')} />;
+                          }
+                          return (
+                            <code className={className} {...props}>
+                              {children}
+                            </code>
+                          );
+                        }
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
                   ) : (
                     msg.content
                   )}
